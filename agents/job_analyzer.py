@@ -1,29 +1,33 @@
-# agents/job_collector.py
+# agents/job_analyzer.py
 
-import requests
-from bs4 import BeautifulSoup
-from state import JobState
+from langchain.chat_models import init_chat_model
 
-class JobCollectorAgent:
+class JobAnalyzerAgent:
 
-    def collect_jobs(self, state: JobState) -> JobState:
+    def __init__(self):
+        self.llm = init_chat_model("gpt-5-mini", model_provider="openai")
 
-        url = "https://www.jobkorea.co.kr/Search/?stext=AI"
+    def analyze(self, state):
 
-        res = requests.get(url)
-        soup = BeautifulSoup(res.text, "html.parser")
+        analyzed = []
 
-        jobs = []
+        for job in state["jobs"]:
 
-        for item in soup.select(".list-post li")[:10]:
+            prompt = f"""
+            다음 채용공고를 분석하세요.
 
-            title = item.select_one("a.title").text.strip()
-            company = item.select_one(".name").text.strip()
+            제목: {job['title']}
 
-            jobs.append({
-                "title": title,
-                "company": company
-            })
+            다음을 추출하세요:
+            - 직무
+            - 요구 기술
+            - 경력 요구사항
+            """
 
-        state["jobs"] = jobs
+            result = self.llm.invoke(prompt).content
+
+            job["analysis"] = result
+            analyzed.append(job)
+
+        state["analyzed_jobs"] = analyzed
         return state
